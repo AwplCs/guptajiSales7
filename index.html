@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order Creator - Mobile Friendly</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      padding: 16px;
+      background: linear-gradient(135deg, #f0f8ff, #e0ffff);
+      margin: 0;
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    form {
+      background: white;
+      padding: 16px;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    label {
+      margin-top: 12px;
+      display: block;
+      font-weight: 600;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 12px;
+      margin-top: 6px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      box-sizing: border-box;
+    }
+    .btn {
+      margin-top: 16px;
+      width: 100%;
+      padding: 14px;
+      background-color: teal;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    .btn:hover {
+      background-color: #006666;
+    }
+    table {
+      width: 100%;
+      margin-top: 16px;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 10px;
+      overflow-x: auto;
+      display: block;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #eee;
+      text-align: center;
+    }
+    th {
+      background-color: #008080;
+      color: white;
+    }
+    tbody tr:nth-child(even) { background: #f9f9f9; }
+    #grandTotal {
+      margin-top: 20px;
+      text-align: center;
+      font-size: 18px;
+      font-weight: bold;
+    }
+    #toast {
+      visibility: hidden;
+      min-width: 250px;
+      margin-left: -125px;
+      background-color: #4CAF50;
+      color: white;
+      text-align: center;
+      border-radius: 8px;
+      padding: 16px;
+      position: fixed;
+      z-index: 1;
+      left: 50%;
+      bottom: 30px;
+      font-size: 17px;
+    }
+    #toast.show {
+      visibility: visible;
+      animation: fadein 0.5s, fadeout 0.5s 2.5s;
+    }
+    @keyframes fadein {
+      from { bottom: 0; opacity: 0; }
+      to { bottom: 30px; opacity: 1; }
+    }
+    @keyframes fadeout {
+      from { bottom: 30px; opacity: 1; }
+      to { bottom: 0; opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<h2>Create New Order</h2>
+
+<form id="orderForm">
+  <label for="name">Customer Name:</label>
+  <input type="text" id="name" required>
+
+  <label for="contact">Contact Number:</label>
+  <input type="text" id="contact" required>
+
+  <label for="additionalInfo">Additional Info (Optional):</label>
+  <textarea id="additionalInfo"></textarea>
+
+  <label for="product">Select Product:</label>
+  <select id="product" required></select>
+
+  <label for="quantity">Quantity:</label>
+  <input type="number" id="quantity" value="1" min="1" required>
+
+  <button type="button" class="btn" onclick="addProduct()">Add Product</button>
+</form>
+
+<div style="overflow-x: auto;">
+  <table id="orderTable">
+    <thead>
+      <tr>
+        <th>Product</th>
+        <th>MRP (₹)</th>
+        <th>SP (₹)</th>
+        <th>Quantity</th>
+        <th>Total MRP</th>
+        <th>Total SP</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<h3 id="grandTotal"></h3>
+
+<button class="btn" onclick="generateInvoice()">Generate Invoice</button>
+<button class="btn" onclick="downloadAsPDF()">Download as PDF</button>
+<button class="btn" onclick="shareOnWhatsApp()">Share on WhatsApp</button>
+
+<div id="toast">Invoice Ready!</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+const products = [
+{ name: "JOINT CURATOR OIL", price: 343 },
+  { name: "MAKEUP MANTRAS HAIRDOC OIL", price: 215 },
+  { name: "MAKEUP MANTRAS EXE HAIR CLEANSER", price: 210 },
+  { name: "MAKEUP MANTRAS EXE HERBAL FACE WASH", price: 207.17 },
+  { name: "EXE ALOEVERA CUCUMBER CREAM", price: 199 },
+  { name: "MAKEUP MANTRAS EXE HEAL DOC CREAM", price: 222.88 },
+  { name: "EXE HERBAL FACE PACK CREAM", price: 208.86 },
+  { name: "EXE ALOEVERA SAFFRON OINT GEL", price: 215.94 },
+  { name: "EXE HERBAL FACE SCRUB CREAM", price: 208.86 },
+  { name: "KIDGDOC RAS", price: 706 },
+  { name: "EXE HERBAL TEA", price: 369.6 },
+  { name: "PRODOC POWDER", price: 534.24 },
+  { name: "EXE PANCH TULSI OIL", price: 360 },
+  { name: "OBEODOC RAS [NEW]", price: 2259 },
+  { name: "STONDOC RAS [NEW]", price: 2229 },
+  { name: "PILODOC RAS [NEW]", price: 2137 },
+  { name: "THYDOC PRAVAHI KWATH [NEW]", price: 2165 },
+  { name: "CHLORODOC PRAVAHI KWATH [NEW]", price: 2153 },
+  { name: "ORTHODOC PRAVAHI KWATH [NEW]", price: 2000 },
+  { name: "THUNDERBLAST RAS [NEW]", price: 1998 },
+    { name: "CARDIODOC RAS [NEW]", price: 2004 },
+  { name: "FEVODOC PRAVAHI KWATH [NEW]", price: 1828.96 },
+  { name: "IMMUNODOC RAS [NEW]", price: 1844 },
+  { name: "DIABODOC RAS [NEW]", price: 1298 },
+  { name: "GYNEDOC RAS [NEW]", price: 1282 },
+  { name: "LIVODOC RAS [NEW]", price: 1328 },
+  { name: "NONIDOC JUICE [NEW]", price: 1022 },
+  { name: "EXE ALOEVERA SYRUP [NEW]", price: 844 },
+  { name: "DENTODOC CREAM [NEW]", price: 217 },
+  { name: "BRAINDOC PRAVAHI KWATH", price: 1183 },
+  { name: "EXE TRIPHALA PRAVAHI KWATH", price: 399 },
+  { name: "MAKEUP MANTRAS EXE B-TON OINT", price: 594.72 },
+  { name: "ADIDOC PRAVAHI KWATH", price: 395 },
+  { name: "COUGHDOC PRAVAHI KWATH", price: 412.16 },
+  { name: "EXE JC OINT", price: 356.16 },
+  { name: "ALRGYDOC PRAVAHI KWATH", price: 1116 },
+  { name: "EXE VEINDOC OIL", price: 218.96 },
+  { name: "MAKEUP MANTRAS EXE HAIR SHINE OINT", price: 236 },
+  { name: "BERRYDOC JUICE", price: 1751 },
+  { name: "CURCIDOC DROP", price: 478.24 },
+  { name: "CURCIDOC CAPSULE", price: 937.44 },
+  { name: "SEABUCKDOC JUICE", price: 1115 },
+  { name: "SLIMDOC POWDER", price: 1382.96 },
+  { name: "MUSCLEDOC POWDER", price: 4364.82 },
+  { name: "STEVIADOC DROP", price: 339.36 },
+  { name: "SPIRADOC CAPSULE", price: 955 },
+  { name: "MORIDOC CAPSULE", price: 947.52 },
+  { name: "COW C DOC CAPSULE", price: 950.88 },
+  { name: "OMEGADOC CAPSULE", price: 994 },
+  { name: "VITADOC CAPSULE", price: 1321 },
+  { name: "MASSDOC POWDER", price: 3361.82 },
+  { name: "FENNELDOC DROP", price: 192.64 },
+  { name: "HEIGHTDOC POWDER", price: 2805 },
+  { name: "FITDOC POWDER", price: 404.74 },
+  { name: "DIGIDOC POWDER", price: 199.42 },
+  { name: "VIRALDOC PRAVAHI KWATH", price: 588 },
+  { name: "EXE IMMUNITY DROP", price: 185.92 },
+  { name: "EXE HERBAL MEHANDI POWDER", price: 394.99 },
+  { name: "EXE GILOY JUICE", price: 361.76 },
+  { name: "EXE HDOC SANITIZER", price: 232.46 },
+  { name: "AYUSH KWATH POWDER", price: 240.8 },
+  { name: "PRASS DOC", price: 952 },
+  { name: "EXE WHEAT GRASS POWDER", price: 519.68 },
+  { name: "EXE GENODOC OINT", price: 198.24 },
+  { name: "EXE GILOY CAPSULE", price: 194.88 },
+  { name: "EXE GOLDEN MILK POWDER", price: 878.99 },
+  { name: "EXE HERBAL HANDWASH", price: 161.66 },
+  { name: "EXE ASHWAGANDHA TABLET", price: 767 },
+  { name: "EXE GINSENG TABLET", price: 775 },
+  { name: "EXE C COMFORT OIL", price: 99.12 },
+  { name: "ECO AROGYAM TEA", price: 124.01 },
+  { name: "POWER FLUSH TOILET CLEANER", price: 83 },
+  { name: "LIMFRESH LIQUID DISH WASH", price: 89 },
+  { name: "BATHVEDA GLYCERIN & NATURAL OIL BAR", price: 169 },
+  { name: "BATHVEDA BEAUTY CREAM BAR", price: 166.99 },
+  { name: "BATHVEDA GOAT MILK BAR", price: 300 },
+  { name: "TOSHINE LIQUID WASH", price: 184 },
+  { name: "TOSHINE DETERGENT POWDER", price: 135 },
+  { name: "EASY SWEEP SURFACE CLEANER", price: 89 },
+  { name: "EYEDOC DROP", price: 1162 },
+  { name: "BATHVEDA NEEM TULSI BAR", price: 165 },
+  { name: "SHOTS 30", price: 4484 },
+  { name: "ZINC TABLET", price: 309.16 },
+  { name: "VITAMIN B12 TABLET", price: 483.8 },
+  { name: "VITAMIN D2 TABLET", price: 625 },
+  { name: "CALCIUM TABLET", price: 499 },
+  { name: "WOMEN WELLNESS TABLET", price: 1089 },
+  { name: "FENUGREEK EXTRACT CAPSULE", price: 882.99 },
+  { name: "ARJUN EXTRACT CAPSULE", price: 974 },
+  { name: "BRAHMI EXTRACT CAPSULE", price: 439 },
+  { name: "GREEN TEA EXTRACT CAPSULE", price: 1045 },
+  { name: "NEEM EXTRACT CAPSULE", price: 687 },
+  { name: "TESTOFAST CAPSULE", price: 1935 },
+  { name: "GREEN COFFEE BEAN EXTRACT CAPSULE", price: 931.76 },
+  { name: "VEDIK AGRO PGPR", price: 515 },
+  { name: "VEDIK AGRO AGRO 90", price: 494 },
+  { name: "VEDIK AGRO ECO HARIYALI", price: 1015 },
+  { name: "VEDIK AGRO BHUVITA SOIL CONDITIONER", price: 496 },
+  { name: "MAKEUP MANTRAS LIP BALM", price: 31 },
+  { name: "VITAMIN K2 TABLET", price: 549 },
+  { name: "MAKEUP MANTRAS KIWI FRUIT FACE WASH", price: 139 },
+  { name: "MAKEUP MANTRAS STRAWBERRY FACE WASH", price: 140.01 },
+  { name: "MAKEUP MANTRAS DAY CREAM FOR MEN", price: 231.01 },
+  { name: "MAKEUP MANTRAS NIGHT CREAM WOMENS", price: 236 },
+  { name: "MAKEUP MANTRAS BODY LOTION", price: 275 },
+  { name: "MAKEUP MANTRAS HAIR REMOVAL CREAM", price: 139 },
+  { name: "MAKEUP MANTRAS V SPLASH", price: 212 },
+  { name: "MAKEUP MANTRAS FAIRNESS CREAM WOMEN", price: 241 },
+  { name: "TOSHINE WINTERWEAR LIQUID WASH", price: 184 },
+  { name: "MAKEUP MANTRAS MOISTURISING CREAM", price: 158.99 },
+  { name: "DAYLIFT TABLET", price: 962 },
+  { name: "HORNY GOAT WEED CAPSULE", price: 1199 },
+  { name: "IRON TABLET", price: 531 },
+  { name: "SHUDDH SHILAJIT CAPSULE", price: 1329 },
+  { name: "MAKEUP MANTRAS HAIRDOC OIL 200 ML", price: 404 },
+  { name: "ECO AROGYAM COFFEE", price: 292.99 },
+  { name: "NATURFIT WAKECHA LEMON LIME FLAVOR", price: 379 },
+  { name: "GASDOC CAPSULE", price: 825 },
+  { name: "KABZDOC GRANULES", price: 145.99 },
+  { name: "MAKEUP MANTRAS NIGHT CREAM FOR MEN", price: 248 },
+  { name: "TOSHINE DETERGENT BAR", price: 93 },
+  { name: "LIMFRESH DISH WASH BAR", price: 88 },
+  { name: "NATURFIT KIT", price: 5490 },
+  { name: "SUPERVO RICE BRAN OIL (2 LTR)", price: 465 },
+  { name: "SUPERVO RICE BRAN OIL (5 LTR)", price: 1163 },
+  { name: "ECO AROGYAM ACTIVE FIBER COMPLEX", price: 1499 },
+  { name: "ECO AROGYAM PLANT PROTEIN POWDER", price: 2478 },
+  { name: "LITTLE PIE KIDS PROTEIN POWDER", price: 1149 },
+  { name: "ECO AROGYAM MULTIFLORA HONEY", price: 849 },
+  { name: "CHARGEDOC ENERGY DRINK WATERMELON", price: 1499 },
+  { name: "CHARGEDOC ENERGY DRINK GREEN APPLE", price: 1275 },
+  { name: "ECO AROGYAM PROTEINDOC POWDER", price: 949 },
+  { name: "HIIMODOC SYRUP", price: 1151 },
+  { name: "ASTHMDOC SYRUP", price: 1344 },
+  { name: "METAADOC SYRUP", price: 1031 },
+  { name: "RAAKTDOC SYRUP", price: 1378 },
+  { name: "ROOM FRESHNER(MUSK)", price: 219 },
+  { name: "VETDOC CALCIUM SUSPENSION", price: 1994 },
+  { name: "VETDOC FAT BOOSTER POWDER", price: 1298 },
+  { name: "ECO AROGYAM CHILLI POWDER-100 GM", price: 54 },
+  { name: "ECO AROGYAM CHILLI POWDER-200 GM", price: 105 },
+  { name: "ECO AROGYAM CHILLI POWDER-500 GM", price: 256 },
+  { name: "ECO AROGYAM CHILLI POWDER-1 KG", price: 507 },
+  { name: "ECO AROGYAM TURMERIC POWDER-100 GM", price: 38 },
+  { name: "ECO AROGYAM TURMERIC POWDER-200 GM", price: 76 },
+  { name: "ECO AROGYAM TURMERIC POWDER-500 GM", price: 159 },
+  { name: "ECO AROGYAM TURMERIC POWDER-1 KG", price: 299 },
+  { name: "ECO AROGYAM CORIANDER POWDER-100 GM", price: 37 },
+  { name: "ECO AROGYAM CORIANDER POWDER-200 GM", price: 82.01 },
+  { name: "ECO AROGYAM CORIANDER POWDER-500 GM", price: 177 },
+  { name: "ECO AROGYAM CORIANDER POWDER-1 KG", price: 378 },
+  { name: "EXE PUNARNAVA KWATH", price: 989 },
+  { name: "SHIITAKE SHAKE (RABDI FALOODA)", price: 565 },
+  { name: "ASCLEPIUS CHYAWANPRASH - AVALEHA", price: 389 },
+  { name: "BATHVEDA FRESH LIME BAR", price: 189 },
+  { name: "BATHVEDA MYSORE SANDAL SOAP", price: 210 },
+  { name: "ASCLEPIUS T SHIRT (S)", price: 1950 },
+  { name: "ASCLEPIUS T SHIRT (M)", price: 1950 },
+  { name: "ASCLEPIUS T SHIRT (L)", price: 1950 },
+  { name: "ASCLEPIUS T SHIRT (XL)", price: 1950 },
+  { name: "ASCLEPIUS T SHIRT (XXL)", price: 1950 },
+  { name: "ECO AROGYAM MULTIFLORA HONEY (NEW)", price: 379 },
+  { name: "AWPL DIARY 2025", price: 299 },
+  { name: "EXE HERBAL TEA", price: 404 },
+  { name: "PRODOC POWDER", price: 585 },
+  { name: "FEVODOC PRAVAHI KWATH", price: 2033 },
+  { name: "COUGHDOC PRAVAHI KWATH", price: 446 },
+  { name: "EXE JC OINT", price: 390 },
+  { name: "EXE VEINDOC OIL", price: 236 },
+  { name: "STEVIADOC DROP", price: 373 },
+  { name: "SPIRADOC CAPSULE", price: 1057 },
+  { name: "MORIDOC CAPSULE", price: 1050 },
+  { name: "VIRALDOC PRAVAHI KWATH", price: 639 },
+  { name: "EXE IMMUNITY DROP", price: 203 },
+  { name: "EXE HERBAL MEHANDI POWDER", price: 429 },
+  { name: "AYUSH KWATH POWDER", price: 258 },
+  { name: "PRASS DOC", price: 1054 },
+  { name: "EXE WHEAT GRASS POWDER", price: 571 },
+  { name: "EXE GENODOC OINT", price: 215 },
+  { name: "EXE HERBAL HANDWASH", price: 171.01 },
+  { name: "EXE C COMFORT OIL", price: 108.01 },
+  { name: "ECO AROGYAM TEA", price: 151 },
+  { name: "POWER FLUSH TOILET CLEANER", price: 89 },
+  { name: "LIMFRESH LIQUID DISH WASH", price: 95 },
+  { name: "BATHVEDA GLYCERIN NATURAL OIL BAR", price: 174 },
+  { name: "BATHVEDA BEAUTY CREAM BAR", price: 174 },
+  { name: "BATHVEDA GOAT MILK BAR", price: 308.99 },
+  { name: "TOSHINE LIQUID WASH", price: 193 },
+  { name: "TOSHINE DETERGENT POWDER", price: 141 },
+  { name: "EASY SWEEP SURFACE CLEANER", price: 95 },
+  { name: "BATHVEDA NEEM TULSI BAR", price: 174 },
+  { name: "ZINC TABLET", price: 343 },
+  { name: "VITAMIN B12 TABLET", price: 535 },
+  { name: "VITAMIN D2 TABLET", price: 693 },
+  { name: "CALCIUM TABLET", price: 550 },
+  { name: "WOMEN WELLNESS TABLET", price: 1208 },
+  { name: "FENUGREEK EXTRACT CAPSULE", price: 968 },
+  { name: "ARJUN EXTRACT CAPSULE", price: 1075.99 },
+  { name: "BRAHMI EXTRACT CAPSULE", price: 473 },
+  { name: "NEEM EXTRACT CAPSULE", price: 755 },
+  { name: "VITAMIN K2 TABLET", price: 599.99 },
+  { name: "TOSHINE WINTERWEAR LIQUID WASH", price: 190 },
+  { name: "DAYLIFT TABLET", price: 1063.99 },
+  { name: "IRON TABLET", price: 582 },
+  { name: "SHUDDH SHILAJIT CAPSULE", price: 1465 },
+  { name: "GASDOC CAPSULE", price: 893 },
+  { name: "KABZDOC GRANULES", price: 155 },
+  { name: "TOSHINE DETERGENT BAR", price: 98 },
+  { name: "LIMFRESH DISH WASH BAR", price: 92 },
+  { name: "HIIMODOC SYRUP", price: 1270 },
+  { name: "ASTHMDOC SYRUP", price: 1480 },
+  { name: "METAADOC SYRUP", price: 1133 },
+  { name: "RAAKTDOC SYRUP", price: 1514 },
+  { name: "ROOM FRESHNER (MUSK)", price: 232 },
+  { name: "ECO AROGYAM CHILLI POWDER 100GM", price: 56 },
+  { name: "ECO AROGYAM CHILLI POWDER- 200 GM", price: 109 },
+  { name: "ECO AROGYAM CHILLI POWDER -500GM", price: 265 },
+  { name: "ECO AROGYAM TURMERIC POWDER-100GM", price: 40.01 },
+  { name: "ECO AROGYAM TURMERIC POWDER-200GM", price: 79 },
+  { name: "ECO AROGYAM TURMERIC POWDER-500GM", price: 168 },
+  { name: "ECO AROGYAM CORIANDER POWDER-100GM", price: 39 },
+  { name: "ECO AROGYAM CORIANDERPOWDER-200GM", price: 86 },
+  { name: "ECO AROGYAM CORIANDER POWDER-500 GM", price: 186 },
+  { name: "FREE YOU ANION SANITARY PAD(280 MM)", price: 159 },
+  { name: "FREE YOU ANION SANITARY PAD(330 MM)", price: 169 },
+  { name: "ORELLA PERFUME", price: 715 },
+  { name: "NEBEL PERFUME", price: 715 },
+  { name: "SNISS CHARCOAL FACEWASH", price: 299 },
+  { name: "SNISS VITAMIN C FACEWASH", price: 255 },
+  { name: "SNISS HYDRATING FACEWASH", price: 255 },
+  { name: "SNISS ALOEVERA CUCUMBER GEL", price: 265 },
+  { name: "SNISS ALOEVERA TURMERIC GEL", price: 265 },
+  { name: "SNISS ALOEVERA PINK GEL", price: 265 },
+  { name: "SNISS HYALURONIC ACID FACE MOISTURIZER", price: 550 },
+  { name: "SNISS 24K GOLD FACE MOISTURIZER", price: 550 },
+  { name: "SNISS COFFEE UNDER EYE CREAM", price: 499 },
+  { name: "SNISS VITAMIN C FACE TONER", price: 449 },
+  { name: "SNISS HYALURONIC ACID WITH SNAIL MU", price: 499 },
+  { name: "SNISS VITAMIN C FACE SERUM", price: 535 },
+  { name: "SNISS NIACINAMIDE FACE SERUM", price: 499 },
+  { name: "SNISS 24K GOLD FACE SERUM", price: 549 },
+  { name: "SNISS HAIR GROWTH SERUM", price: 499 },
+  { name: "SNISS SALICYLIC ACID FACE SHEET MASK", price: 225 },
+  { name: "SNISS AHA + BHA FACE SHEET MASK", price: 225 },
+  { name: "SNISS KOJIC ACID FACE SHEET MASK", price: 225 },
+  { name: "SNISS COLLAGEN + PEPTIDE FACE SHEET", price: 225 },
+  { name: "SNISS ELITE DE-TEN FACIAL SHEET MASK", price: 225 },
+  { name: "SNISS SUNSCREEN SPF50 PA++++ GEL", price: 289.01 },
+  { name: "SNISS MATTE SUNSCREEN SPF50 PA++++", price: 549 },
+  { name: "BACK PACK", price: 1199 },
+  { name: "FITDOC POWDER", price: 449 },
+  { name: "WELLROOT DIGIDOC POWDER", price: 239 },
+  { name: "WELLROOT ASHWAGANDHA TABLET", price: 999 },
+  { name: "EXE GINSENG TABLET", price: 964 },
+  { name: "JEEVEDA CHOLE CHANA MASALA", price: 99 },
+  { name: "JEEVEDA CHICKEN MASALA", price: 105 },
+  { name: "JEEVEDA DAL MAKHANI MASALA", price: 115 },
+  { name: "JEEVEDA FISH MASALA", price: 109 },
+  { name: "JEEVEDA GARAM MASALA", price: 119 },
+  { name: "JEEVEDA KITCHEN KING MASALA", price: 99 },
+  { name: "JEEVEDA MUTTON MASALA", price: 119 },
+  { name: "JEEVEDA PAV BHAJI MASALA", price: 99 },
+  { name: "JEEVEDA SHAHI PANEER MASALA", price: 109 },
+  { name: "JEEVEDA SAMBHAR MASALA", price: 89 },
+  { name: "JEEVEDA TANDOORI CHICKEN MASALA", price: 99 },
+  { name: "JEEVEDA CAROM SEEDS – AJWAIN", price: 59 },
+  { name: "JEEVEDA BLACK PEPPER – KALI MIRCHI", price: 99 },
+  { name: "JEEVEDA BLACK CARDAMOM – BADI ELAIC", price: 229.01 },
+  { name: "JEEVEDA CUMIN SEEDS – JEERA", price: 89 },
+  { name: "JEEVEDA NIGELLA SEEDS – KALONJI", price: 55 },
+  { name: "JEEVEDA FENUGREEK SEEDS –METHI DANA", price: 49 },
+  { name: "JEEVEDA MUSTARD SEEDS – RAI", price: 39 },
+  { name: "JEEVEDA CLOVE – LAUNG", price: 119 },
+  { name: "SNISS COSMETIC PRIMER", price: 949 },
+  { name: "LIFT AND SCULPT CONCEALER- IVORY PLAY", price: 550 },
+  { name: "LIFT AND SCULPT CONCEALER- LIGHT PORCELAIN", price: 649 },
+  { name: "LIFT AND SCULPT CONCEALER- ALMOND FINISH", price: 550 },
+  { name: "LIFT AND SCULPT CONCEALER- CARAMEL BLISS", price: 649 },
+  { name: "LIFT AND SCULPT CONCEALER- VELVET BRONZE", price: 649 },
+  { name: "LIFT AND SCULPT CONCEALER- ROSE BEIGE", price: 649 },
+  { name: "MATT EYE LINER BLACK", price: 619 },
+  { name: "LUXE MATTE LIQUID LIPSTICK- FINE WINE", price: 369 },
+  { name: "LUXE MATTE LIQUID LIPSTICK- DEEP HUE", price: 369 },
+  { name: "WELLROOT NONIDOC JUICE", price: 1022 },
+  { name: "WELLROOT SEABUCKDOC JUICE", price: 1115 },
+  { name: "WELLROOT MORIDOC TABLET", price: 1050 },
+  { name: "WELLROOT ZINC TABLET", price: 343 },
+  { name: "WELLROOT VITAMIN B12 TABLET", price: 535 },
+  { name: "WELLROOT VITAMIN D2 TABLET", price: 693 },
+  { name: "WELLROOT CALCIUM TABLET", price: 550 },
+  { name: "WELLROOT WOMEN WELLNESS TABLET", price: 1208 },
+  { name: "WELLROOT FENUGREEK EXTRACT TABLET", price: 968 },
+  { name: "WELLROOT ARJUN EXTRACT TABLET", price: 1075.99 },
+  { name: "WELLROOT BRAHMI EXTRACT TABLET", price: 473 },
+  { name: "WELLROOT NEEM EXTRACT TABLET", price: 755 },
+  { name: "WELLROOT DAYLIFT TABLET", price: 1063.99 },
+  { name: "WELLROOT IRON TABLET", price: 582 }
+];
+
+$(document).ready(function() {
+  products.forEach(product => {
+    $('#product').append(`<option value="${product.name}" data-price="${product.price}">${product.name} (₹${product.price})</option>`);
+  });
+  $('#product').select2({ placeholder: "Search and Select Product" });
+});
+
+let orderItems = [];
+
+function addProduct() {
+  const productSelect = document.getElementById('product');
+  const quantityInput = document.getElementById('quantity');
+  const selectedOption = productSelect.options[productSelect.selectedIndex];
+
+  if (!selectedOption.value) {
+    alert('Please select a product');
+    return;
+  }
+
+  const quantity = parseInt(quantityInput.value);
+  const price = parseFloat(selectedOption.getAttribute('data-price'));
+
+  const product = {
+    name: selectedOption.value,
+    price: price,
+    quantity: quantity,
+    totalMRP: price * quantity,
+    totalSP: price * quantity // Assuming SP = MRP
+  };
+
+  orderItems.push(product);
+  renderTable();
+}
+
+function renderTable() {
+  const tbody = document.querySelector('#orderTable tbody');
+  tbody.innerHTML = '';
+
+  let grandMRP = 0;
+  let grandSP = 0;
+
+  orderItems.forEach((item, index) => {
+    const row = `<tr>
+      <td>${item.name}</td>
+      <td>₹${item.price}</td>
+      <td>₹${item.price}</td>
+      <td>${item.quantity}</td>
+      <td>₹${item.totalMRP}</td>
+      <td>₹${item.totalSP}</td>
+      <td><button class="btn" onclick="removeProduct(${index})">Remove</button></td>
+    </tr>`;
+    tbody.innerHTML += row;
+
+    grandMRP += item.totalMRP;
+    grandSP += item.totalSP;
+  });
+
+  document.getElementById('grandTotal').innerHTML = `Grand Total MRP: ₹${grandMRP.toFixed(2)} | SP: ₹${grandSP.toFixed(2)}`;
+}
+
+function removeProduct(index) {
+  orderItems.splice(index, 1);
+  renderTable();
+}
+
+function generateInvoice() {
+  showToast();
+}
+
+function showToast() {
+  const toast = document.getElementById('toast');
+  toast.className = 'show';
+  setTimeout(() => toast.className = toast.className.replace('show', ''), 3000);
+}
+
+async function downloadAsPDF() {
+  const { jsPDF } = window.jspdf;
+  const canvas = await html2canvas(document.body);
+  const imgData = canvas.toDataURL('image/png');
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  const imgProps = pdf.getImageProperties(imgData);
+  const pdfWidth = pdf.internal.pageSize.getWidth();
+  const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+  pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+  pdf.save('invoice.pdf');
+}
+
+function shareOnWhatsApp() {
+  const name = document.getElementById('name').value;
+  const contact = document.getElementById('contact').value;
+  const message = `Order Details:%0ACustomer: ${name}%0AContact: ${contact}%0AThank you!`;
+  const whatsappUrl = `https://wa.me/?text=${message}`;
+  window.open(whatsappUrl, '_blank');
+}
+</script>
+</body>
+</html>
